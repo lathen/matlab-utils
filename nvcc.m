@@ -2,6 +2,10 @@ function nvcc(varargin)
 % This function NVCC is a wraper for the NVIDIA Cuda compiler NVCC.exe
 % in combination with a Visual Studio compiler. After this Cuda
 % files can be compiled into kernels
+%
+% It is forked from Matlab File Exchange:
+% http://www.mathworks.com/matlabcentral/fileexchange/29611-nvcc-cuda-compiler-wraper
+% and modified to support for Mac/Linux and more than 8 input options.
 % 
 % If you call the code the first time, or with "nvcc -config":
 % 1) It will try to locate the "The NVIDIA GPU Computing Toolkit", which 
@@ -128,37 +132,26 @@ if isunix
     disp(result);
     
 else
-    % Copy configuration file to current folder
-    functionname='nvcc.m';
-    functiondir=which(functionname);
-    functiondir=functiondir(1:end-length(functionname));
-    afilename=[cd '\nvccbat.bat'];
-    cfilename=[functiondir '\nvccbat.bat'];
-    if(~exist(afilename,'file'))
-        if(exist(cfilename,'file'))
-            fid = fopen(cfilename, 'r'); fiw = fopen('nvccbat.bat', 'w');
-            fwrite(fiw,fread(fid, inf, 'uint8=>uint8'));
-            fclose(fiw);  fclose(fid);
-        else
-            % If configuration file doesn't exist, go to config mode
-            do_config;
-        end
-    end
-    
-    if(strcmp(varargin{1},'-config'))
-        % Configuration Mode
-        do_config;        
+    [script_dir, script_name, ext] = fileparts(mfilename('fullpath'));
+    bat_file = fullfile(script_dir, [script_name '.bat']);
+
+    % If explicitly asked, go to config mode
+    if strcmp(varargin{1},'-config')
+        do_config(bat_file);
     else
-        % Compile a .cu file using the nvcc.exe compiler
-        
+        % If bat file doesn't exist, go to config mode
+        if ~exist(bat_file,'file')
+            do_config(bat_file);
+        end
+
         % Excecute the bat file to compile a .cu file
-        [status,result] = system(['nvccbat ' str]);
+        [status,result] = system([bat_file ' ' str]);
         disp(result);
     end
 end
 
 
-function do_config()
+function do_config(bat_file)
 % Locate the Cuda Toolkit
 filenametoolkit=toolkit_selection;
 disp('.'); disp(['Toolkit Path: ' filenametoolkit]);
@@ -168,11 +161,7 @@ disp('.'); disp(['Toolkit Path: ' filenametoolkit]);
 disp('.'); disp(['VS Compiler: ' filenamecompiler]);
 
 % Create a bat file which will excecute the nvcc compiler
-functionname='nvcc.m';
-functiondir=which(functionname);
-functiondir=functiondir(1:end-length(functionname));
-cfilename=[functiondir '\nvccbat.bat'];
-createbatfile(filenamecompiler,filenametoolkit, filenamecompilerbat,cfilename);
+createbatfile(filenamecompiler, filenametoolkit, filenamecompilerbat, bat_file);
 
 
 function createbatfile(filenamecompiler,filenametoolkit, filenamecompilerbat,cfilename)
